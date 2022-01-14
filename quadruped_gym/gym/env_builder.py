@@ -45,7 +45,7 @@ class A1BulletGymEnv(gym.Env):
     metadata = {"render.modes": ["rgb_array"]}
 
     def __init__(self, render=False):
-        self._env = build_env()
+        self._env = build_env(render = render)
         self.observation_space = self._env.observation_space
         self.action_space = self._env.action_space
 
