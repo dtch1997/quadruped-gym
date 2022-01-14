@@ -21,23 +21,17 @@ import numpy as np
 from gym import spaces
 from gym.utils import seeding
 
-from quadruped_gym.core.types import RobotObservation
+from quadruped_gym.core.types import RobotActionConfig, RobotObservation
 from quadruped_gym.gym.sensors import sensor, space_utils
 from quadruped_gym.quadruped import a1_pybullet
 from quadruped_gym.quadruped.a1_pybullet.simulator import SimulationParameters
 
 
-def _build_action_space(action_config):
-    """Builds action space based on motor control mode POSITION"""
-    action_upper_bound = []
-    action_lower_bound = []
-    for action in action_config:
-        action_upper_bound.append(action.upper_bound)
-        action_lower_bound.append(action.lower_bound)
-
+def _build_action_space(action_config: RobotActionConfig):
+    """Builds action space"""
     return spaces.Box(
-        np.array(action_lower_bound),
-        np.array(action_upper_bound),
+        action_config.motor_angle_lower_bounds,
+        action_config.motor_angle_upper_bounds,
         dtype=np.float32,
     )
 
@@ -76,7 +70,7 @@ class QuadrupedGymEnv(gym.Env):
         self._simulator = a1_pybullet.A1PyBulletSimulator(sim_params)
 
         # The action list contains the name of all actions.
-        self.action_space = _build_action_space(self._simulator.robot.ACTION_CONFIG)
+        self.action_space = _build_action_space(self._simulator.robot.action_config)
         self.observation_space = space_utils.convert_sensors_to_gym_space_dictionary(self.all_sensors())
 
     @property
@@ -127,7 +121,8 @@ class QuadrupedGymEnv(gym.Env):
         # self._get_observation depends on sensors
         self._last_env_obs = self._get_observation()
         # task depends on self._last_env_obs
-        if self._task: self._task.on_reset(self)
+        if self._task:
+            self._task.on_reset(self)
 
         return self._last_env_obs
 
@@ -151,7 +146,8 @@ class QuadrupedGymEnv(gym.Env):
         for s in self.all_sensors():
             s.on_step(self)
         self._last_env_obs = self._get_observation()
-        if self._task: self._task.on_step(self)
+        if self._task:
+            self._task.on_step(self)
 
         reward, reward_components = self._reward()
         done = self._termination()

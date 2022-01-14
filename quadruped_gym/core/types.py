@@ -25,3 +25,11 @@ class RobotObservation:
     motor_angles: np.ndarray
     motor_velocities: np.ndarray
     motor_torques: np.ndarray
+
+
+@dataclass
+class RobotActionConfig:
+    motor_angle_lower_bounds: np.ndarray
+    motor_angle_upper_bounds: np.ndarray
+    motor_force_upper_bounds: np.ndarray
+    motor_velocity_upper_bounds: np.ndarray

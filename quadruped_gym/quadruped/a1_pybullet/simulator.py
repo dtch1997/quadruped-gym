@@ -8,6 +8,7 @@ import pybullet_utils.bullet_client as bullet_client
 
 from quadruped_gym.core.simulator import Simulator as BaseSimulator
 from quadruped_gym.core.types import RobotObservation
+from quadruped_gym.quadruped import data
 from quadruped_gym.quadruped.a1_pybullet import A1PyBulletActuator, A1PyBulletPerceptor, A1PyBulletRobot
 
 
@@ -140,4 +141,5 @@ class Simulator(BaseSimulator):
         else:
             pybullet_client = bullet_client.BulletClient(connection_mode=pybullet.DIRECT)
 
+        pybullet_client.setAdditionalSearchPath(data.get_data_path())
         return pybullet_client
