@@ -6,6 +6,7 @@ import numpy as np
 import pybullet
 import pybullet_utils.bullet_client as bullet_client
 
+from quadruped_gym.core.simulator import Simulator as BaseSimulator
 from quadruped_gym.core.types import RobotObservation
 from quadruped_gym.quadruped.a1_pybullet import A1PyBulletActuator, A1PyBulletPerceptor, A1PyBulletRobot
 
@@ -30,7 +31,7 @@ class SimulationParameters(object):
     enable_clip_motor_commands: bool = True
 
 
-class Simulator:
+class Simulator(BaseSimulator):
     def __init__(self, sim_params: SimulationParameters):
         self.sim_params = sim_params
         self._pybullet_client = self._init_pybullet_client()
@@ -60,7 +61,7 @@ class Simulator:
                 numSolverIterations=self.sim_params.num_bullet_solver_iterations
             )
             self._pybullet_client.setTimeStep(self.sim_params.sim_time_step_s)
-            self._pybullet_client.setGravity(0, 0, -10)
+            self._pybullet_client.setGravity(0, 0, -9.81)
             self._world_dict = {"ground": self._pybullet_client.loadURDF("plane_implicit.urdf")}
 
         self._robot.reset(reload_urdf=hard_reset)

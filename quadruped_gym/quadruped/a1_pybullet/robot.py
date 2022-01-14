@@ -217,8 +217,15 @@ class Robot:
         self._motor_inertia = [self._link_urdf[motor_id + 1] for motor_id in self._motor_id_list]
 
     def _ResetPose(self):
+        for name in self._joint_name_to_id:
+            joint_id = self._joint_name_to_id[name]
+            self._pybullet_client.setJointMotorControl2(
+                bodyIndex=self.quadruped,
+                jointIndex=(joint_id),
+                controlMode=self._pybullet_client.VELOCITY_CONTROL,
+                targetVelocity=0,
+                force=0,
+            )
         for i, name in enumerate(self.MOTOR_NAMES):
-            if not ("hip_joint" in name or "upper_joint" in name or "lower_joint" in name):
-                raise ValueError("The name %s is not recognized as a motor joint." % name)
             angle = self.INIT_MOTOR_ANGLES[i]
             self._pybullet_client.resetJointState(self.quadruped, self._joint_name_to_id[name], angle, targetVelocity=0)
