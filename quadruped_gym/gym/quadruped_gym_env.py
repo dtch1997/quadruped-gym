@@ -127,7 +127,7 @@ class QuadrupedGymEnv(gym.Env):
         # self._get_observation depends on sensors
         self._last_env_obs = self._get_observation()
         # task depends on self._last_env_obs
-        self._task.on_reset(self)
+        if self._task: self._task.on_reset(self)
 
         return self._last_env_obs
 
@@ -151,7 +151,7 @@ class QuadrupedGymEnv(gym.Env):
         for s in self.all_sensors():
             s.on_step(self)
         self._last_env_obs = self._get_observation()
-        self._task.on_step(self)
+        if self._task: self._task.on_step(self)
 
         reward, reward_components = self._reward()
         done = self._termination()
@@ -164,11 +164,10 @@ class QuadrupedGymEnv(gym.Env):
 
     def _termination(self) -> bool:
         """Computes whether the episode is over"""
-
-        if self._task and hasattr(self._task, "done"):
-            return self._task.done()
-
-        return False
+        if self._task:
+            return self._task.is_done()
+        else:
+            return False
 
     def _reward(self) -> Tuple[float, Dict[str, float]]:
         if self._task:

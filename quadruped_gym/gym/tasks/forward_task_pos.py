@@ -30,7 +30,9 @@ class ForwardTask(object):
         If the robot base becomes unstable (based on orientation), the episode
         terminates early.
         """
-        return False
+        rot_quat = self._robot_obs.base_orientation
+        rot_mat = pybullet.getMatrixFromQuaternion(rot_quat)
+        return rot_mat[-1] < 0.5
 
     def reward(self):
         """Get the reward without side effects.
