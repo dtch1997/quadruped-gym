@@ -1,13 +1,8 @@
-from __future__ import absolute_import, division, print_function
-
 import collections
+from typing import Union
 
 import numpy as np
 from scipy.signal import butter
-
-ACTION_FILTER_ORDER = 2
-ACTION_FILTER_LOW_CUT = 0.0
-ACTION_FILTER_HIGH_CUT = 4.0
 
 
 class ActionFilter(object):
@@ -88,43 +83,36 @@ class ActionFilter(object):
             self.xhist[i] = x
             self.yhist[i] = x
 
+
 class ActionFilterButter(ActionFilter):
     """Butterworth filter."""
 
     def __init__(
         self,
-        lowcut=None,
-        highcut=None,
-        sampling_rate=None,
-        order=ACTION_FILTER_ORDER,
-        num_joints=None,
+        sampling_rate: float,
+        num_joints: int,
+        order: int = 2,
+        lowcut: Union[float, np.ndarray] = 0.0,
+        highcut: Union[float, np.ndarray] = 4.0,
     ):
         """Initializes a butterworth filter.
         Either one per joint or same for all joints.
         Args:
-          lowcut: list of strings defining the low cutoff frequencies.
-            The list must contain either 1 element (same filter for all joints)
-            or num_joints elements
-            0 for lowpass, > 0 for bandpass. Either all values must be 0
-            or all > 0
-          highcut: list of strings defining the high cutoff frequencies.
-            The list must contain either 1 element (same filter for all joints)
-            or num_joints elements
+          lowcut: Low cutoff frequencies.
+            If np.ndarray is provided, must contain same number of elements as highcut
+            All 0 for lowpass or all > 0 for bandpass.
+          highcut: High cutoff frequencies.
+            If np.ndarray is provided, must contain same number of elements as lowcut
             All must be > 0
           sampling_rate: frequency of samples in Hz
+          num_joints: int,
           order: filter order
-          num_joints: robot DOF
         """
-        self.lowcut = [float(x) for x in lowcut] if lowcut is not None else [ACTION_FILTER_LOW_CUT]
-        self.highcut = [float(x) for x in highcut] if highcut is not None else [ACTION_FILTER_HIGH_CUT]
-        if len(self.lowcut) != len(self.highcut):
+        self.lowcut = lowcut if isinstance(lowcut, np.ndarray) else np.full(num_joints, lowcut)
+        self.highcut = highcut if isinstance(highcut, np.ndarray) else np.full(num_joints, highcut)
+
+        if self.lowcut.shape != self.highcut.shape:
             raise ValueError("Number of lowcut and highcut filter values should " "be the same")
-
-        if sampling_rate is None:
-            raise ValueError("sampling_rate should be provided.")
-
-        if num_joints is None:
-            raise ValueError("num_joints should be provided.")
 
         if np.any(self.lowcut):
             if not np.all(self.lowcut):

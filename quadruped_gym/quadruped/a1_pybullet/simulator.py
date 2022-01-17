@@ -7,7 +7,7 @@ import pybullet
 import pybullet_utils.bullet_client as bullet_client
 
 from quadruped_gym.core.simulator import Simulator as BaseSimulator
-from quadruped_gym.core.types import RobotObservation
+from quadruped_gym.core.types import RobotAction, RobotObservation
 from quadruped_gym.quadruped import data
 from quadruped_gym.quadruped.a1_pybullet import A1PyBulletActuator, A1PyBulletPerceptor, A1PyBulletRobot
 
@@ -28,8 +28,8 @@ class SimulationParameters(object):
     render_height: int = 360
     # Flags concerning action post-processing
     # TODO: Investigate how these are implemented
-    enable_action_filter: bool = True
-    enable_clip_motor_commands: bool = True
+    enable_action_filter: bool = False
+    enable_clip_motor_commands: bool = False
 
 
 class Simulator(BaseSimulator):
@@ -39,16 +39,16 @@ class Simulator(BaseSimulator):
         self._last_frame_time = 0.0
         self._robot = A1PyBulletRobot(self._pybullet_client)
         self._robot_perceptor = A1PyBulletPerceptor()
-        self._robot_actuator = A1PyBulletActuator()
+        self._robot_actuator = A1PyBulletActuator(
+            sampling_rate=1 / sim_params.sim_time_step_s,
+            enable_action_filter=sim_params.enable_action_filter,
+            enable_clip_motor_commands=sim_params.enable_clip_motor_commands,
+        )
         self.reset(hard_reset=True)
 
     @property
     def robot(self):
         return self._robot
-
-    @property
-    def robot_perceptor(self):
-        return self._robot_perceptor
 
     def reset(self, hard_reset=False) -> RobotObservation:
         """Reset the simulation"""
@@ -76,7 +76,7 @@ class Simulator(BaseSimulator):
 
         return self._robot_perceptor.get_observation()
 
-    def step(self, action, n_repeats=1) -> RobotObservation:
+    def step(self, action: RobotAction, n_repeats=1) -> RobotObservation:
         """Performs one or more simulation steps"""
 
         if self.sim_params.enable_rendering:
@@ -95,7 +95,8 @@ class Simulator(BaseSimulator):
             self._pybullet_client.resetDebugVisualizerCamera(dist, yaw, pitch, base_pos)
             self._pybullet_client.configureDebugVisualizer(self._pybullet_client.COV_ENABLE_SINGLE_STEP_RENDERING, 1)
 
-        self._robot_actuator.send_action(action, self._robot)
+        prev_obs = self._robot_perceptor.get_observation()
+        self._robot_actuator.send_action(action, self._robot, prev_obs)
         for _ in range(n_repeats):
             self._robot.pybullet_client.stepSimulation()
         self._robot_perceptor.receive_observation(self._robot)

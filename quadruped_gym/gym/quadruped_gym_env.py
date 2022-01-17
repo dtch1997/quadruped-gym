@@ -24,6 +24,7 @@ from gym.utils import seeding
 from quadruped_gym.core.types import RobotActionConfig, RobotObservation
 from quadruped_gym.gym.sensors import sensor, space_utils
 from quadruped_gym.quadruped import a1_pybullet
+from quadruped_gym.quadruped.a1_pybullet.robot import Robot
 from quadruped_gym.quadruped.a1_pybullet.simulator import SimulationParameters
 
 
@@ -82,10 +83,6 @@ class QuadrupedGymEnv(gym.Env):
         return self._last_robot_obs
 
     @property
-    def last_robot_action(self) -> np.ndarray:
-        return self._last_robot_action
-
-    @property
     def last_env_obs(self) -> Dict[str, np.ndarray]:
         """Return dictionary of most recent sensor values"""
         return self._last_env_obs
@@ -126,7 +123,7 @@ class QuadrupedGymEnv(gym.Env):
 
         return self._last_env_obs
 
-    def step(self, action):
+    def step(self, action: np.ndarray):
         """Step forward the simulation, given the action.
 
         Args:
@@ -139,6 +136,10 @@ class QuadrupedGymEnv(gym.Env):
           done: Whether the episode has ended.
           info: A dictionary that stores diagnostic information.
         """
+
+        robot_action = RobotAction(
+            
+        )
         self._last_robot_obs: RobotObservation = self._simulator.step(action, n_repeats=self._num_action_repeat)
         self._env_step_counter += 1
         self._last_robot_action = action

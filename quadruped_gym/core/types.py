@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 
 import numpy as np
 
@@ -33,3 +34,25 @@ class RobotActionConfig:
     motor_angle_upper_bounds: np.ndarray
     motor_force_upper_bounds: np.ndarray
     motor_velocity_upper_bounds: np.ndarray
+
+
+@dataclass
+class RobotAction:
+    desired_motor_angles: np.ndarray
+    desired_motor_velocities: np.ndarray
+    position_gain: np.ndarray
+    velocity_gain: np.ndarray
+    additional_torques: np.ndarray
+
+    def get_motor_torques(self, current_motor_angles: np.ndarray, current_motor_velocities: np.ndarray) -> np.ndarray:
+        motor_torques = (
+            self.position_gain * (self.desired_motor_angles - current_motor_angles)
+            + self.velocity_gain * (self.desired_motor_velocities - current_motor_velocities)
+            + self.additional_torques
+        )
+        return motor_torques
+
+
+class RobotControlMode(Enum):
+    POSITION = 0
+    HYBRID = 1
