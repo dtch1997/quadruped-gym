@@ -89,7 +89,7 @@ class Simulator(BaseSimulator):
 
         return robot_obs
 
-    def step(self, action: RobotAction, n_repeats=1) -> RobotObservation:
+    def step(self, action: RobotAction) -> RobotObservation:
         """Performs one or more simulation steps"""
 
         if self.sim_params.enable_rendering:
@@ -98,7 +98,7 @@ class Simulator(BaseSimulator):
             current_time = timer()
             time_spent = current_time - self._last_frame_time
             self._last_frame_time = current_time
-            time_to_sleep = self.sim_params.sim_time_step_s * n_repeats - time_spent
+            time_to_sleep = self.sim_params.sim_time_step_s * self.sim_params.n_action_repeat - time_spent
             if time_to_sleep > 0:
                 sleep(time_to_sleep)
 
@@ -114,7 +114,7 @@ class Simulator(BaseSimulator):
         if self.sim_params.enable_action_filter:
             action.desired_motor_angles = self._action_filter.filter(action.desired_motor_angles)
 
-        for _ in range(n_repeats):
+        for _ in range(self.sim_params.n_action_repeat):
             # Motor angle clipping
             if self.sim_params.enable_clip_motor_commands:
                 max_angle_change = self.sim_params.clip_max_angle_change
