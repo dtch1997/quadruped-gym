@@ -6,6 +6,7 @@ import numpy as np
 import pybullet
 import pybullet_utils.bullet_client as bullet_client
 
+from quadruped_gym.core.filter import ActionFilterButter
 from quadruped_gym.core.simulator import Simulator as BaseSimulator
 from quadruped_gym.core.types import RobotAction, RobotObservation
 from quadruped_gym.quadruped import data
@@ -18,6 +19,7 @@ class SimulationParameters(object):
 
     # Basic simulation parameters
     sim_time_step_s: float = 0.001
+    n_action_repeat: int = 1
     num_bullet_solver_iterations: int = 10
     enable_rendering: bool = False
     # Parameters concerning camera rendering
@@ -30,6 +32,7 @@ class SimulationParameters(object):
     # TODO: Investigate how these are implemented
     enable_action_filter: bool = False
     enable_clip_motor_commands: bool = False
+    clip_max_angle_change: float = 0.2
 
 
 class Simulator(BaseSimulator):
@@ -37,13 +40,18 @@ class Simulator(BaseSimulator):
         self.sim_params = sim_params
         self._pybullet_client = self._init_pybullet_client()
         self._last_frame_time = 0.0
+        # Only used if boolean configured
+        self._action_filter = ActionFilterButter(
+            sampling_rate=1 / (sim_params.sim_time_step_s * sim_params.n_action_repeat),
+            num_joints=12,
+            lowcut=0.0,
+            highcut=4.0,
+            order=2,
+        )
+
         self._robot = A1PyBulletRobot(self._pybullet_client)
         self._robot_perceptor = A1PyBulletPerceptor()
-        self._robot_actuator = A1PyBulletActuator(
-            sampling_rate=1 / sim_params.sim_time_step_s,
-            enable_action_filter=sim_params.enable_action_filter,
-            enable_clip_motor_commands=sim_params.enable_clip_motor_commands,
-        )
+        self._robot_actuator = A1PyBulletActuator()
         self.reset(hard_reset=True)
 
     @property
@@ -68,13 +76,18 @@ class Simulator(BaseSimulator):
         self._robot.reset(reload_urdf=hard_reset)
         self._robot_perceptor.reset(self._robot)
         self._robot_perceptor.receive_observation(self._robot)
+        robot_obs = self._robot_perceptor.get_observation()
+
+        self._robot_actuator.reset(self._robot)
+        self._action_filter.reset()
+        self._action_filter.init_history(robot_obs.motor_angles)
 
         self._pybullet_client.setPhysicsEngineParameter(enableConeFriction=0)
 
         if self.sim_params.enable_rendering:
             self._pybullet_client.configureDebugVisualizer(self._pybullet_client.COV_ENABLE_RENDERING, 1)
 
-        return self._robot_perceptor.get_observation()
+        return robot_obs
 
     def step(self, action: RobotAction, n_repeats=1) -> RobotObservation:
         """Performs one or more simulation steps"""
@@ -96,8 +109,21 @@ class Simulator(BaseSimulator):
             self._pybullet_client.configureDebugVisualizer(self._pybullet_client.COV_ENABLE_SINGLE_STEP_RENDERING, 1)
 
         prev_obs = self._robot_perceptor.get_observation()
-        self._robot_actuator.send_action(action, self._robot, prev_obs)
+
+        # Action filtering
+        if self.sim_params.enable_action_filter:
+            action.desired_motor_angles = self._action_filter.filter(action.desired_motor_angles)
+
         for _ in range(n_repeats):
+            # Motor angle clipping
+            if self.sim_params.enable_clip_motor_commands:
+                max_angle_change = self.sim_params.clip_max_angle_change
+                action.desired_motor_angles = np.clip(
+                    action.desired_motor_angles,
+                    action.desired_motor_angles - max_angle_change,
+                    action.desired_motor_angles + max_angle_change,
+                )
+            self._robot_actuator.send_action(action, self._robot, prev_obs)
             self._robot.pybullet_client.stepSimulation()
         self._robot_perceptor.receive_observation(self._robot)
         return self._robot_perceptor.get_observation()
