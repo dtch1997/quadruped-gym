@@ -58,6 +58,10 @@ class Simulator(BaseSimulator):
     def robot(self):
         return self._robot
 
+    @property
+    def robot_kinematics(self):
+        return self._robot_kinematics
+
     def reset(self, hard_reset=False) -> RobotObservation:
         """Reset the simulation"""
 

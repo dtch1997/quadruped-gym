@@ -127,3 +127,6 @@ class Robot:
         for i, motor_id in enumerate(self.motor_id_list):
             angle = self.INIT_MOTOR_ANGLES[i]
             self._pybullet_client.resetJointState(self.quadruped, motor_id, angle, targetVelocity=0)
+
+class RobotKinematics:
+    

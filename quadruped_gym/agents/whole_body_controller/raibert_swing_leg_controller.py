@@ -101,7 +101,7 @@ class RaibertSwingLegController(leg_controller.LegController):
 
         Args:
           gait_generator: Generates the stance/swing pattern.
-          state_estimator: Estiamtes the CoM speeds.
+          state_estimator: Estimates the CoM speeds.
           desired_speed: Behavior parameters. X-Y speed.
           desired_twisting_speed: Behavior control parameters.
           desired_height: Desired standing height.
@@ -120,23 +120,19 @@ class RaibertSwingLegController(leg_controller.LegController):
         self.reset(0)
 
     def reset(self, robot_obs: RobotObservation) -> None:
-        """Called during the start of a swing cycle.
-
-        Args:
-          current_time: The wall time in seconds.
-        """
+        """Called during the start of a swing cycle."""
         self._last_leg_state = self._gait_generator.desired_leg_state
-        self._phase_switch_foot_local_position = self.simulator.robot.get_foot_positions_in_base_frame(robot_obs)
+        self._phase_switch_foot_local_position = robot_obs.foot_positions
         self._joint_angles = {}
 
-    def update(self) -> None:
+    def update(self, robot_obs: RobotObservation) -> None:
         new_leg_state = self._gait_generator.desired_leg_state
 
         # Detects phase switch for each leg so we can remember the feet position at
         # the beginning of the swing phase.
         for leg_id, state in enumerate(new_leg_state):
             if state == gait_generator_lib.LegState.SWING and state != self._last_leg_state[leg_id]:
-                self._phase_switch_foot_local_position[leg_id] = self.simulator.robot.get_foot_positions_in_base_frame(robot_obs)
+                self._phase_switch_foot_local_position[leg_id] = robot_obs.foot_positions[leg_id]
 
         self._last_leg_state = copy.deepcopy(new_leg_state)
 
@@ -145,7 +141,7 @@ class RaibertSwingLegController(leg_controller.LegController):
         com_velocity = np.array((com_velocity[0], com_velocity[1], 0))
 
         _, _, yaw_dot = robot_obs.rpy
-        hip_positions = self.simulator.robot.get_hip_positions_in_base_frame(robot_obs)
+        hip_positions = self.simulator.robot_kinematics.get_hip_positions(robot_obs)
 
         for leg_id, leg_state in enumerate(self._gait_generator.leg_state):
             if leg_state in (
@@ -174,14 +170,14 @@ class RaibertSwingLegController(leg_controller.LegController):
             (
                 joint_ids,
                 joint_angles,
-            ) = self.simulator.robot.compute_motor_angles_from_foot_position(leg_id, foot_position)
+            ) = self.simulator.robot_kinematics.compute_motor_angles_from_foot_position(leg_id, foot_position)
             # Update the stored joint angles as needed.
             for joint_id, joint_angle in zip(joint_ids, joint_angles):
                 self._joint_angles[joint_id] = (joint_angle, leg_id)
 
         action = {}
-        kps = self.simulator.get_motor_position_gains()
-        kds = self.simulator.get_motor_velocity_gains()
+        kps = self.simulator.robot_kinematics.get_motor_position_gains()
+        kds = self.simulator.robot_kinematics.get_motor_velocity_gains()
         for joint_id, joint_angle_leg_id in self._joint_angles.items():
             leg_id = joint_angle_leg_id[1]
             if self._gait_generator.desired_leg_state[leg_id] == gait_generator_lib.LegState.SWING:

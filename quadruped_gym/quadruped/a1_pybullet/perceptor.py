@@ -50,6 +50,9 @@ class Perceptor:
             angular_velocity_world, self.get_base_orientation(), robot.pybullet_client
         )
 
+        # Update foot contact state and contact force
+
+
     def get_observation(self) -> RobotObservation:
         """Return the robot observations without affecting the simulation"""
         return RobotObservation(
@@ -61,6 +64,8 @@ class Perceptor:
             motor_angles=self.get_motor_angles(),
             motor_velocities=self.get_motor_velocities(),
             motor_torques=self.get_motor_torques(),
+            foot_contacts=None,
+            foot_positions=None
         )
 
     def get_base_position(self) -> np.ndarray:
@@ -87,3 +92,9 @@ class Perceptor:
 
     def get_motor_torques(self) -> np.ndarray:
         return np.array([state[3] for state in self._joint_states])
+
+    def get_foot_contacts(self) -> np.ndarray:
+        pass 
+
+    def get_foot_positions(self) -> np.ndarray:
+        pass

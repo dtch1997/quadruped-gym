@@ -18,14 +18,18 @@ class RobotObservation:
     # Base position state
     base_position: np.ndarray
     base_orientation: np.ndarray
-    base_rpy: np.ndarray
+    base_rpy: np.ndarray # In the world frame
     # Base velocity state
-    base_velocity: np.ndarray
-    base_rpy_rate: np.ndarray
+    base_velocity: np.ndarray # In the world frame
+    base_rpy_rate: np.ndarray 
     # Motor state
     motor_angles: np.ndarray
     motor_velocities: np.ndarray
     motor_torques: np.ndarray
+    # Foot state
+    foot_contacts: np.ndarray # In the base frame 
+    foot_positions: np.ndarray # In the base frame
+    hip_positions: np.ndarray
 
 
 @dataclass
