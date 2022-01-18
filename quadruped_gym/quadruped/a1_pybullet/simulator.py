@@ -115,14 +115,6 @@ class Simulator(BaseSimulator):
             action.desired_motor_angles = self._action_filter.filter(action.desired_motor_angles)
 
         for _ in range(self.sim_params.n_action_repeat):
-            # Motor angle clipping
-            if self.sim_params.enable_clip_motor_commands:
-                max_angle_change = self.sim_params.clip_max_angle_change
-                action.desired_motor_angles = np.clip(
-                    action.desired_motor_angles,
-                    action.desired_motor_angles - max_angle_change,
-                    action.desired_motor_angles + max_angle_change,
-                )
             self._robot_actuator.send_action(action, self._robot, prev_obs)
             self._robot.pybullet_client.stepSimulation()
         self._robot_perceptor.receive_observation(self._robot)
