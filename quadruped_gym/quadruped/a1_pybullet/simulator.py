@@ -16,6 +16,7 @@ from quadruped_gym.quadruped.a1_pybullet import (
     A1PyBulletRobot,
     A1PyBulletRobotKinematics,
 )
+from quadruped_gym.quadruped.a1_pybullet.actuator import ControlMode
 
 
 @dataclass
@@ -38,6 +39,8 @@ class SimulationParameters(object):
     enable_action_filter: bool = False
     enable_clip_motor_commands: bool = False
     clip_max_angle_change: float = 0.2
+    # Parameters concerning actuator mode
+    actuator_control_mode: ControlMode = ControlMode.POSITION
 
 
 class Simulator(BaseSimulator):
@@ -57,7 +60,7 @@ class Simulator(BaseSimulator):
         self._robot = A1PyBulletRobot(self._pybullet_client)
         self._robot_kinematics = A1PyBulletRobotKinematics()
         self._robot_perceptor = A1PyBulletPerceptor()
-        self._robot_actuator = A1PyBulletActuator()
+        self._robot_actuator = A1PyBulletActuator(self.sim_params.actuator_control_mode)
         self.reset(hard_reset=True)
 
     @property

@@ -71,19 +71,17 @@ class TorqueStanceLegController(leg_controller.LegController):
         self._last_robot_obs = robot_obs
 
     @classmethod
-    def _estimate_robot_height(cls, robot_obs: RobotObservation):
+    def _estimate_robot_height(cls, desired_contacts, robot_obs: RobotObservation):
         base_orientation = robot_obs.base_orientation
-        contacts = robot_obs.foot_contacts
         rot_mat = f.get_matrix_from_quaternion(base_orientation)
         foot_positions_world_frame = (rot_mat.dot(robot_obs.foot_positions.T)).T
-        useful_heights = contacts * (-foot_positions_world_frame[:, 2])
-        return np.sum(useful_heights) / np.sum(contacts)
+        useful_heights = desired_contacts * (-foot_positions_world_frame[:, 2])
+        return np.sum(useful_heights) / np.sum(desired_contacts)
 
     def get_action(self):
         """Computes the torque for stance legs."""
         # Actual q and dq
-        """
-        contacts = np.array(
+        desired_contacts = np.array(
             [
                 (
                     leg_state
@@ -97,12 +95,8 @@ class TorqueStanceLegController(leg_controller.LegController):
             dtype=np.float64,
         )
         foot_positions = self._last_robot_obs.foot_positions
-        """
-        contacts = self._last_robot_obs.foot_contacts
-        foot_positions = self._last_robot_obs.foot_positions
-        leg_angles = self._last_robot_obs.motor_angles.reshape((4,3))
 
-        robot_com_height = self._estimate_robot_height(self._last_robot_obs)
+        robot_com_height = self._estimate_robot_height(desired_contacts, self._last_robot_obs)
         robot_com_velocity = self._state_estimator.com_velocity_body_frame
         robot_com_roll_pitch_yaw = self._last_robot_obs.base_rpy
         robot_com_roll_pitch_yaw[2] = 0.0  # To prevent yaw drifting
@@ -119,11 +113,16 @@ class TorqueStanceLegController(leg_controller.LegController):
         # Desired ddq
         desired_ddq = KP * (desired_q - robot_q) + KD * (desired_dq - robot_dq)
         desired_ddq = np.clip(desired_ddq, MIN_DDQ, MAX_DDQ)
-        contact_forces = self._qp_torque_optimizer.compute_contact_force(foot_positions, desired_ddq, contacts=contacts)
+        contact_forces = self._qp_torque_optimizer.compute_contact_force(
+            foot_positions, desired_ddq, contacts=desired_contacts
+        )
 
         action = {}
         for leg_id, force in enumerate(contact_forces):
-            motor_torques = self.simulator.robot_kinematics.map_contact_force_to_joint_torques(leg_id, force, leg_angles[leg_id])
+            leg_angles = self._last_robot_obs.motor_angles[leg_id * 3 : (leg_id + 1) * 3]
+            motor_torques = self.simulator.robot_kinematics.map_contact_force_to_joint_torques(
+                leg_id, force, leg_angles
+            )
             for joint_id, torque in motor_torques.items():
                 action[joint_id] = (0, 0, 0, 0, torque)
         return action, contact_forces

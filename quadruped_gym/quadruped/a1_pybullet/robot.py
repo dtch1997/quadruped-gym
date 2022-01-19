@@ -6,6 +6,7 @@ import pybullet
 
 from quadruped_gym.core.types import RobotActionConfig, RobotObservation
 
+
 class RobotKinematics:
 
     NUM_MOTORS = 12
@@ -36,7 +37,7 @@ class RobotKinematics:
     # At high replanning frequency, inaccurate values of BODY_MASS/INERTIA
     # doesn't seem to matter much. However, these values should be better tuned
     # when the replan frequency is low (e.g. using a less beefy CPU).
-    MPC_BODY_MASS = 108 / 9.8
+    MPC_BODY_MASS = 140 / 9.8
     MPC_BODY_INERTIA = np.array((0.017, 0, 0, 0, 0.057, 0, 0, 0, 0.064)) * 4.0
     MPC_BODY_HEIGHT = 0.24
     MPC_VELOCITY_MULTIPLIER = 0.5
@@ -146,6 +147,7 @@ class RobotKinematics:
             foot_positions[i] = cls.foot_position_in_hip_frame(foot_angles[i], l_hip_sign=(-1) ** (i + 1))
         return foot_positions + cls.HIP_OFFSETS
 
+
 class Robot:
     """Class to load A1 robot data in PyBullet and reset robot to initial state"""
 
@@ -244,7 +246,6 @@ class Robot:
                 self._foot_link_ids.append(joint_id)
 
         self._foot_link_ids.sort()
-
 
     def _RemoveDefaultJointDamping(self):
         num_joints = self._pybullet_client.getNumJoints(self.quadruped)

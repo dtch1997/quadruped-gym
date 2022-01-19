@@ -7,6 +7,7 @@ _BODY_B_FIELD_NUMBER = 2
 _LINK_A_FIELD_NUMBER = 3
 _NORMAL_FORCE_FIELD_NUMBER = 9
 
+
 def _transform_angular_velocity_to_local_frame(angular_velocity, orientation, pybullet_client):
     _, orientation_inversed = pybullet_client.invertTransform([0, 0, 0], orientation)
     # Transform the angular_velocity at neutral orientation using a neutral
@@ -18,6 +19,7 @@ def _transform_angular_velocity_to_local_frame(angular_velocity, orientation, py
         pybullet_client.getQuaternionFromEuler([0, 0, 0]),
     )
     return relative_velocity
+
 
 class Perceptor:
     """A class for re-computing the robot state from the PyBullet simulation"""
@@ -55,7 +57,8 @@ class Perceptor:
         # Update foot contact state and contact force
         all_contacts = robot.pybullet_client.getContactPoints(bodyA=robot.quadruped)
 
-        foot_contacts = [False, False, False, False]
+        foot_contacts = [False] * robot.kinematics.NUM_LEGS
+        foot_contact_forces = [0] * robot.kinematics.NUM_LEGS
         for contact in all_contacts:
             # Ignore self contacts
             if contact[_BODY_B_FIELD_NUMBER] == robot.quadruped:
@@ -63,14 +66,15 @@ class Perceptor:
             elif contact[_LINK_A_FIELD_NUMBER] in robot.foot_link_id_list:
                 toe_link_index = robot._foot_link_ids.index(contact[_LINK_A_FIELD_NUMBER])
                 foot_contacts[toe_link_index] = True
+                foot_contact_forces[toe_link_index] = contact[_NORMAL_FORCE_FIELD_NUMBER]
             else:
                 continue
 
         self._foot_contacts = np.array(foot_contacts)
+        self._foot_contact_forces = np.array(foot_contact_forces)
 
         # Update foot positions
         self._foot_positions = robot.kinematics.foot_positions_in_base_frame(self.get_motor_angles())
-
 
     def get_observation(self) -> RobotObservation:
         """Return the robot observations without affecting the simulation"""
@@ -84,7 +88,8 @@ class Perceptor:
             motor_velocities=self.get_motor_velocities(),
             motor_torques=self.get_motor_torques(),
             foot_contacts=self.get_foot_contacts(),
-            foot_positions=self.get_foot_positions()
+            foot_contact_forces=self.get_foot_contact_forces(),
+            foot_positions=self.get_foot_positions(),
         )
 
     def get_base_position(self) -> np.ndarray:
@@ -114,6 +119,9 @@ class Perceptor:
 
     def get_foot_contacts(self) -> np.ndarray:
         return np.array(self._foot_contacts)
+
+    def get_foot_contact_forces(self) -> np.ndarray:
+        return np.array(self._foot_contact_forces)
 
     def get_foot_positions(self) -> np.ndarray:
         return np.array(self._foot_positions)

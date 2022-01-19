@@ -29,6 +29,7 @@ class RobotObservation:
     motor_torques: np.ndarray
     # Foot state
     foot_contacts: np.ndarray  # In the base frame
+    foot_contact_forces: np.ndarray
     foot_positions: np.ndarray  # In the base frame
 
 
