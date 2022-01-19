@@ -7,9 +7,11 @@ import math
 from typing import Any, Mapping, Sequence, Tuple
 
 import numpy as np
+
 from quadruped_gym.agents.whole_body_controller import gait_generator as gait_generator_lib
 from quadruped_gym.agents.whole_body_controller import leg_controller
 from quadruped_gym.core.types import RobotObservation
+from quadruped_gym.quadruped.a1_pybullet import robot
 
 # The position correction coefficients in Raibert's formula.
 _KP = np.array([0.01, 0.01, 0.01]) * 3
@@ -42,9 +44,7 @@ def _gen_parabola(phase: float, start: float, mid: float, end: float) -> float:
 
 
 def _gen_swing_foot_trajectory(
-    input_phase: float, 
-    start_pos: Sequence[float], 
-    end_pos: Sequence[float]
+    input_phase: float, start_pos: Sequence[float], end_pos: Sequence[float]
 ) -> Tuple[float, float, float]:
     """Generates the swing trajectory using a parabola.
 
@@ -76,7 +76,7 @@ def _gen_swing_foot_trajectory(
     mid = max(end_pos[2], start_pos[2]) + max_clearance
     z = _gen_parabola(phase, start_pos[2], mid, end_pos[2])
 
-    return (x, y, z) 
+    return (x, y, z)
 
 
 class RaibertSwingLegController(leg_controller.LegController):
@@ -117,16 +117,18 @@ class RaibertSwingLegController(leg_controller.LegController):
 
         self._joint_angles = None
         self._phase_switch_foot_local_position = None
-        self.reset(0)
+        self.reset()
 
-    def reset(self, robot_obs: RobotObservation) -> None:
+    def reset(self) -> None:
         """Called during the start of a swing cycle."""
-        self._last_leg_state = self._gait_generator.desired_leg_state
-        self._phase_switch_foot_local_position = robot_obs.foot_positions
+        self._phase_switch_foot_local_position = None
         self._joint_angles = {}
 
     def update(self, robot_obs: RobotObservation) -> None:
         new_leg_state = self._gait_generator.desired_leg_state
+
+        if self._phase_switch_foot_local_position is None:
+            self._phase_switch_foot_local_position = robot_obs.foot_positions
 
         # Detects phase switch for each leg so we can remember the feet position at
         # the beginning of the swing phase.
@@ -135,13 +137,14 @@ class RaibertSwingLegController(leg_controller.LegController):
                 self._phase_switch_foot_local_position[leg_id] = robot_obs.foot_positions[leg_id]
 
         self._last_leg_state = copy.deepcopy(new_leg_state)
+        self._last_robot_obs = robot_obs
 
-    def get_action(self, robot_obs: RobotObservation) -> Mapping[Any, Any]:
+    def get_action(self) -> Mapping[Any, Any]:
         com_velocity = self._state_estimator.com_velocity_body_frame
         com_velocity = np.array((com_velocity[0], com_velocity[1], 0))
 
-        _, _, yaw_dot = robot_obs.rpy
-        hip_positions = self.simulator.robot_kinematics.get_hip_positions(robot_obs)
+        _, _, yaw_dot = self._last_robot_obs.base_rpy_rate
+        hip_positions = self.simulator.robot_kinematics.get_hip_positions(self._last_robot_obs)
 
         for leg_id, leg_state in enumerate(self._gait_generator.leg_state):
             if leg_state in (
@@ -176,17 +179,16 @@ class RaibertSwingLegController(leg_controller.LegController):
                 self._joint_angles[joint_id] = (joint_angle, leg_id)
 
         action = {}
-        kps = self.simulator.robot_kinematics.get_motor_position_gains()
-        kds = self.simulator.robot_kinematics.get_motor_velocity_gains()
+
         for joint_id, joint_angle_leg_id in self._joint_angles.items():
             leg_id = joint_angle_leg_id[1]
             if self._gait_generator.desired_leg_state[leg_id] == gait_generator_lib.LegState.SWING:
                 # This is a hybrid action for PD control.
                 action[joint_id] = (
                     joint_angle_leg_id[0],
-                    kps[joint_id],
+                    100.0,
                     0,
-                    kds[joint_id],
+                    1.0,
                     0,
                 )
 

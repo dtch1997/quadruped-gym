@@ -1,15 +1,19 @@
 """A model based controller framework."""
 
 
+from typing import Any, Dict, Tuple
+
 import numpy as np
+
 from quadruped_gym.agents.whole_body_controller.com_velocity_estimator import COMVelocityEstimator
 from quadruped_gym.agents.whole_body_controller.openloop_gait_generator import OpenloopGaitGenerator
 from quadruped_gym.agents.whole_body_controller.raibert_swing_leg_controller import RaibertSwingLegController
 from quadruped_gym.agents.whole_body_controller.torque_stance_leg_controller import TorqueStanceLegController
-from quadruped_gym.core.simulator import Simulator
-from quadruped_gym.core.types import RobotObservation
+from quadruped_gym.core.simulator import Controller, Simulator
+from quadruped_gym.core.types import RobotAction, RobotObservation
 
-class LocomotionController(object):
+
+class LocomotionController(Controller):
     """Generates the quadruped locomotion.
 
     The actual effect of this controller depends on the composition of each
@@ -58,10 +62,10 @@ class LocomotionController(object):
     def state_estimator(self):
         return self._state_estimator
 
-    def reset(self, robot_obs: RobotObservation):
+    def reset(self):
         self._gait_generator.reset()
         self._state_estimator.reset()
-        self._swing_leg_controller.reset(robot_obs)
+        self._swing_leg_controller.reset()
         self._stance_leg_controller.reset()
 
     def update(self, robot_obs: RobotObservation, current_time: float):
@@ -70,17 +74,27 @@ class LocomotionController(object):
         self._swing_leg_controller.update(robot_obs)
         self._stance_leg_controller.update(robot_obs)
 
-    def get_action(self):
+    def get_action(self) -> Tuple[RobotAction, Dict[str, Any]]:
         """Returns the control ouputs (e.g. positions/torques) for all motors."""
         swing_action = self._swing_leg_controller.get_action()
         stance_action, qp_sol = self._stance_leg_controller.get_action()
-        action = []
-        for joint_id in range(self._robot.num_motors):
-            if joint_id in swing_action:
-                action.extend(swing_action[joint_id])
+
+        action = RobotAction.zeros(self._simulator.robot_kinematics.NUM_MOTORS)
+        for motor_idx in range(self._simulator.robot_kinematics.NUM_MOTORS):
+            if motor_idx in swing_action:
+                sw_act = swing_action[motor_idx]
+                action.desired_motor_angles[motor_idx] = sw_act[0]
+                action.position_gain[motor_idx] = sw_act[1]
+                action.desired_motor_velocities[motor_idx] = sw_act[2]
+                action.velocity_gain[motor_idx] = sw_act[3]
+                action.additional_torques[motor_idx] = sw_act[4]
             else:
-                assert joint_id in stance_action
-                action.extend(stance_action[joint_id])
-        action = np.array(action, dtype=np.float32)
+                assert motor_idx in stance_action
+                st_act = stance_action[motor_idx]
+                action.desired_motor_angles[motor_idx] = st_act[0]
+                action.position_gain[motor_idx] = st_act[1]
+                action.desired_motor_velocities[motor_idx] = st_act[2]
+                action.velocity_gain[motor_idx] = st_act[3]
+                action.additional_torques[motor_idx] = st_act[4]
 
         return action, dict(qp_sol=qp_sol)

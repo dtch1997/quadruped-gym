@@ -1,20 +1,16 @@
 # Lint as: python3
 """A torque based stance controller framework."""
 
-from __future__ import absolute_import, division, print_function
-
 from typing import Any, Sequence, Tuple
 
 import numpy as np
+
 from quadruped_gym.agents.whole_body_controller import gait_generator as gait_generator_lib
 from quadruped_gym.agents.whole_body_controller import leg_controller, qp_torque_optimizer
+from quadruped_gym.core import functional as f
 from quadruped_gym.core.simulator import Simulator
 from quadruped_gym.core.types import RobotObservation
 
-# import time
-
-
-_FORCE_DIMENSION = 3
 KP = np.array((0.0, 0.0, 100.0, 100.0, 100.0, 0.0))
 KD = np.array((40.0, 30.0, 10.0, 10.0, 10.0, 30.0))
 MAX_DDQ = np.array((10.0, 10.0, 10.0, 20.0, 20.0, 20.0))
@@ -36,7 +32,6 @@ class TorqueStanceLegController(leg_controller.LegController):
         desired_speed: Tuple[float, float] = (0, 0),
         desired_twisting_speed: float = 0,
         desired_body_height: float = 0.45,
-        num_legs: int = 4,
         friction_coeffs: Sequence[float] = (0.45, 0.45, 0.45, 0.45),
     ):
         """Initializes the class.
@@ -56,32 +51,35 @@ class TorqueStanceLegController(leg_controller.LegController):
           num_legs: The number of legs used for force planning.
           friction_coeffs: The friction coeffs on the contact surfaces.
         """
+        self.simulator = simulator
         self._gait_generator = gait_generator
         self._state_estimator = state_estimator
         self.desired_speed = desired_speed
         self.desired_twisting_speed = desired_twisting_speed
 
         self._desired_body_height = desired_body_height
-        self._num_legs = num_legs
+        self._num_legs = self.simulator.robot_kinematics.NUM_LEGS
         self._friction_coeffs = np.array(friction_coeffs)
-        self._qp_torque_optimizer = qp_torque_optimizer.QPTorqueOptimizer(robot.MPC_BODY_MASS, robot.MPC_BODY_INERTIA)
+        self._qp_torque_optimizer = qp_torque_optimizer.QPTorqueOptimizer(
+            self.simulator.robot_kinematics.MPC_BODY_MASS, self.simulator.robot_kinematics.MPC_BODY_INERTIA
+        )
 
     def reset(self):
         pass
 
-    def update(self):
-        pass
+    def update(self, robot_obs: RobotObservation):
+        self._last_robot_obs = robot_obs
 
-    def _estimate_robot_height(self, robot_obs: RobotObservation):
+    @classmethod
+    def _estimate_robot_height(cls, robot_obs: RobotObservation):
         base_orientation = robot_obs.base_orientation
         contacts = robot_obs.foot_contacts
-        rot_mat = pybullet.getMatrixFromQuaternion(base_orientation)
-        rot_mat = np.array(rot_mat).reshape((3, 3))
+        rot_mat = f.get_matrix_from_quaternion(base_orientation)
         foot_positions_world_frame = (rot_mat.dot(robot_obs.foot_positions.T)).T
         useful_heights = contacts * (-foot_positions_world_frame[:, 2])
         return np.sum(useful_heights) / np.sum(contacts)
 
-    def get_action(self, robot_obs: RobotObservation):
+    def get_action(self):
         """Computes the torque for stance legs."""
         # Actual q and dq
         contacts = np.array(
@@ -97,13 +95,13 @@ class TorqueStanceLegController(leg_controller.LegController):
             ],
             dtype=np.float64,
         )
-        foot_positions = robot_obs.foot_positions_in_base_frame
+        foot_positions = self._last_robot_obs.foot_positions_in_base_frame
 
         robot_com_height = self._estimate_robot_height(contacts, foot_positions)
         robot_com_velocity = self._state_estimator.com_velocity_body_frame
-        robot_com_roll_pitch_yaw = robot_obs.base_rpy
+        robot_com_roll_pitch_yaw = self._last_robot_obs.base_rpy
         robot_com_roll_pitch_yaw[2] = 0.0  # To prevent yaw drifting
-        robot_com_roll_pitch_yaw_rate = robot_obs.base_rpy_rate
+        robot_com_roll_pitch_yaw_rate = self._last_robot_obs.base_rpy_rate
         robot_q = np.hstack(([0.0, 0.0, robot_com_height], robot_com_roll_pitch_yaw))
         robot_dq = np.hstack((robot_com_velocity, robot_com_roll_pitch_yaw_rate))
         # Desired q and dq

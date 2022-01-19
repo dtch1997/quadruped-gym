@@ -10,7 +10,12 @@ from quadruped_gym.core.filter import ActionFilterButter
 from quadruped_gym.core.simulator import Simulator as BaseSimulator
 from quadruped_gym.core.types import RobotAction, RobotObservation
 from quadruped_gym.quadruped import data
-from quadruped_gym.quadruped.a1_pybullet import A1PyBulletActuator, A1PyBulletPerceptor, A1PyBulletRobot
+from quadruped_gym.quadruped.a1_pybullet import (
+    A1PyBulletActuator,
+    A1PyBulletPerceptor,
+    A1PyBulletRobot,
+    A1PyBulletRobotKinematics,
+)
 
 
 @dataclass
@@ -50,6 +55,7 @@ class Simulator(BaseSimulator):
         )
 
         self._robot = A1PyBulletRobot(self._pybullet_client)
+        self._robot_kinematics = A1PyBulletRobotKinematics()
         self._robot_perceptor = A1PyBulletPerceptor()
         self._robot_actuator = A1PyBulletActuator()
         self.reset(hard_reset=True)
@@ -61,6 +67,10 @@ class Simulator(BaseSimulator):
     @property
     def robot_kinematics(self):
         return self._robot_kinematics
+
+    @property
+    def time_since_reset(self) -> float:
+        return self._step_counter * self.sim_params.sim_time_step_s
 
     def reset(self, hard_reset=False) -> RobotObservation:
         """Reset the simulation"""
@@ -86,6 +96,7 @@ class Simulator(BaseSimulator):
         self._action_filter.reset()
         self._action_filter.init_history(robot_obs.motor_angles)
 
+        self._step_counter = 0
         self._pybullet_client.setPhysicsEngineParameter(enableConeFriction=0)
 
         if self.sim_params.enable_rendering:
@@ -120,6 +131,7 @@ class Simulator(BaseSimulator):
 
         for _ in range(self.sim_params.n_action_repeat):
             self._robot_actuator.send_action(action, self._robot, prev_obs)
+            self._step_counter += 1
             self._robot.pybullet_client.stepSimulation()
         self._robot_perceptor.receive_observation(self._robot)
         return self._robot_perceptor.get_observation()

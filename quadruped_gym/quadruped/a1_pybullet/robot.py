@@ -1,9 +1,10 @@
 from typing import List
 
+import numba
 import numpy as np
 import pybullet
 
-from quadruped_gym.core.types import RobotActionConfig
+from quadruped_gym.core.types import RobotActionConfig, RobotObservation
 
 
 class Robot:
@@ -13,6 +14,7 @@ class Robot:
     INIT_POSITION = [0, 0, 0.37]
     INIT_ORIENTATION = [0, 0, 0, 1]
     URDF_FILENAME = "a1/urdf/a1_black.urdf"
+
     ### Public API ###
 
     def __init__(self, pybullet_client):
@@ -128,5 +130,141 @@ class Robot:
             angle = self.INIT_MOTOR_ANGLES[i]
             self._pybullet_client.resetJointState(self.quadruped, motor_id, angle, targetVelocity=0)
 
+
 class RobotKinematics:
-    
+
+    NUM_LEGS = 4
+    NUM_MOTORS_PER_LEG = 3
+    DEFAULT_HIP_POSITIONS = (
+        (0.17, -0.135, 0),
+        (0.17, 0.13, 0),
+        (-0.195, -0.135, 0),
+        (-0.195, 0.13, 0),
+    )
+
+    # TODO: Figure out what these mean
+    COM_OFFSET = -np.array([0.012731, 0.002186, 0.000515])
+    HIP_OFFSETS = (
+        np.array(
+            [
+                [0.183, -0.047, 0.0],
+                [0.183, 0.047, 0.0],
+                [-0.183, -0.047, 0.0],
+                [-0.183, 0.047, 0.0],
+            ]
+        )
+        + COM_OFFSET
+    )
+
+    # MPC control values
+    # At high replanning frequency, inaccurate values of BODY_MASS/INERTIA
+    # doesn't seem to matter much. However, these values should be better tuned
+    # when the replan frequency is low (e.g. using a less beefy CPU).
+    MPC_BODY_MASS = 108 / 9.8
+    MPC_BODY_INERTIA = np.array((0.017, 0, 0, 0, 0.057, 0, 0, 0, 0.064)) * 4.0
+    MPC_BODY_HEIGHT = 0.24
+    MPC_VELOCITY_MULTIPLIER = 0.5
+
+    def get_hip_positions(self, obs: RobotObservation):
+        # This is the default implementation in original code which just assumes constant hip positions
+        del obs
+        return self.DEFAULT_HIP_POSITIONS
+
+    def compute_motor_angles_from_foot_position(self, leg_id: int, foot_local_position: np.ndarray):
+        joint_position_idxs = list(range(leg_id * self.NUM_MOTORS_PER_LEG, (leg_id + 1) * self.NUM_MOTORS_PER_LEG))
+
+        joint_angles = self.foot_position_in_hip_frame_to_joint_angle(
+            foot_local_position - self.HIP_OFFSETS[leg_id], l_hip_sign=(-1) ** (leg_id + 1)
+        )
+
+        # Return the joint index (the same as when calling GetMotorAngles) as well
+        # as the angles.
+        return joint_position_idxs, joint_angles.tolist()
+
+    @classmethod
+    @numba.jit(nopython=True, cache=True)
+    def foot_position_in_hip_frame_to_joint_angle(cls, foot_position, l_hip_sign=1):
+        l_up = 0.2
+        l_low = 0.2
+        l_hip = 0.08505 * l_hip_sign
+        x, y, z = foot_position[0], foot_position[1], foot_position[2]
+        theta_knee = -np.arccos((x ** 2 + y ** 2 + z ** 2 - l_hip ** 2 - l_low ** 2 - l_up ** 2) / (2 * l_low * l_up))
+        l = np.sqrt(l_up ** 2 + l_low ** 2 + 2 * l_up * l_low * np.cos(theta_knee))
+        theta_hip = np.arcsin(-x / l) - theta_knee / 2
+        c1 = l_hip * y - l * np.cos(theta_hip + theta_knee / 2) * z
+        s1 = l * np.cos(theta_hip + theta_knee / 2) * y + l_hip * z
+        theta_ab = np.arctan2(s1, c1)
+        return np.array([theta_ab, theta_hip, theta_knee])
+
+    @classmethod
+    @numba.jit(nopython=True, cache=True)
+    def foot_position_in_hip_frame(cls, angles, l_hip_sign=1):
+        theta_ab, theta_hip, theta_knee = angles[0], angles[1], angles[2]
+        l_up = 0.2
+        l_low = 0.2
+        l_hip = 0.08505 * l_hip_sign
+        leg_distance = np.sqrt(l_up ** 2 + l_low ** 2 + 2 * l_up * l_low * np.cos(theta_knee))
+        eff_swing = theta_hip + theta_knee / 2
+
+        off_x_hip = -leg_distance * np.sin(eff_swing)
+        off_z_hip = -leg_distance * np.cos(eff_swing)
+        off_y_hip = l_hip
+
+        off_x = off_x_hip
+        off_y = np.cos(theta_ab) * off_y_hip - np.sin(theta_ab) * off_z_hip
+        off_z = np.sin(theta_ab) * off_y_hip + np.cos(theta_ab) * off_z_hip
+        return np.array([off_x, off_y, off_z])
+
+    @classmethod
+    @numba.jit(nopython=True, cache=True, parallel=True)
+    def foot_positions_in_base_frame(cls, foot_angles: np.ndarray):
+        foot_angles = foot_angles.reshape((cls.NUM_LEGS, cls.NUM_MOTORS_PER_LEG))
+
+        foot_positions = np.zeros((cls.NUM_LEGS, 3))
+        for i in range(4):
+            foot_positions[i] = cls.foot_position_in_hip_frame(foot_angles[i], l_hip_sign=(-1) ** (i + 1))
+        return foot_positions + cls.HIP_OFFSETS
+
+    @classmethod
+    @numba.jit(nopython=True, cache=True)
+    def compute_analytical_leg_jacobian(cls, leg_id: int, leg_angles: np.ndarray):
+        """
+        Computes the analytical Jacobian.
+        Args:
+          leg_angles: a list of 3 numbers for current abduction, hip and knee angle.
+          l_hip_sign: whether it's a left (1) or right(-1) leg.
+        """
+        l_up = 0.2
+        l_low = 0.2
+        l_hip = 0.08505 * (-1) ** (leg_id + 1)
+
+        t1, t2, t3 = leg_angles[0], leg_angles[1], leg_angles[2]
+        l_eff = np.sqrt(l_up ** 2 + l_low ** 2 + 2 * l_up * l_low * np.cos(t3))
+        t_eff = t2 + t3 / 2
+        J = np.zeros((3, 3))
+        J[0, 0] = 0
+        J[0, 1] = -l_eff * np.cos(t_eff)
+        J[0, 2] = l_low * l_up * np.sin(t3) * np.sin(t_eff) / l_eff - l_eff * np.cos(t_eff) / 2
+        J[1, 0] = -l_hip * np.sin(t1) + l_eff * np.cos(t1) * np.cos(t_eff)
+        J[1, 1] = -l_eff * np.sin(t1) * np.sin(t_eff)
+        J[1, 2] = (
+            -l_low * l_up * np.sin(t1) * np.sin(t3) * np.cos(t_eff) / l_eff - l_eff * np.sin(t1) * np.sin(t_eff) / 2
+        )
+        J[2, 0] = l_hip * np.cos(t1) + l_eff * np.sin(t1) * np.cos(t_eff)
+        J[2, 1] = l_eff * np.sin(t_eff) * np.cos(t1)
+        J[2, 2] = (
+            l_low * l_up * np.sin(t3) * np.cos(t1) * np.cos(t_eff) / l_eff + l_eff * np.sin(t_eff) * np.cos(t1) / 2
+        )
+        return J
+
+    @classmethod
+    def map_contact_force_to_joint_torques(cls, leg_id: int, contact_force: np.ndarray):
+        """Maps the foot contact force to the leg joint torques."""
+        jv = cls.compute_leg_jacobian(leg_id)
+        motor_torques_list = np.matmul(contact_force, jv)
+        motor_torques_dict = {}
+        for torque_id, joint_id in enumerate(
+            range(leg_id * cls.NUM_MOTORS_PER_LEG, (leg_id + 1) * cls.NUM_MOTORS_PER_LEG)
+        ):
+            motor_torques_dict[joint_id] = motor_torques_list[torque_id]
+        return motor_torques_dict

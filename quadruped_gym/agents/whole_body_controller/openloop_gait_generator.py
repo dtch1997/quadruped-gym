@@ -5,7 +5,9 @@ import math
 from typing import Sequence
 
 import numpy as np
+
 from quadruped_gym.agents.whole_body_controller import gait_generator
+from quadruped_gym.core.simulator import Simulator
 from quadruped_gym.core.types import RobotObservation
 
 LAIKAGO_TROTTING = (
@@ -31,6 +33,7 @@ class OpenloopGaitGenerator(gait_generator.GaitGenerator):
 
     def __init__(
         self,
+        simulator: Simulator,
         stance_duration: Sequence[float] = _NOMINAL_STANCE_DURATION,
         duty_factor: Sequence[float] = _NOMINAL_DUTY_FACTOR,
         initial_leg_state: Sequence[gait_generator.LegState] = LAIKAGO_TROTTING,
@@ -54,13 +57,14 @@ class OpenloopGaitGenerator(gait_generator.GaitGenerator):
             detection when phase switches. For example, a swing foot at at the
             beginning of the gait cycle might be still on the ground.
         """
+        self.simulator = simulator
         self._stance_duration = stance_duration
         self._duty_factor = duty_factor
         self._swing_duration = np.array(stance_duration) / np.array(duty_factor) - np.array(stance_duration)
-        if len(initial_leg_phase) != self._robot.num_legs:
+        if len(initial_leg_phase) != self.simulator.robot_kinematics.NUM_LEGS:
             raise ValueError("The number of leg phases should be the same as number of legs.")
         self._initial_leg_phase = initial_leg_phase
-        if len(initial_leg_state) != self._robot.num_legs:
+        if len(initial_leg_state) != self.simulator.robot_kinematics.NUM_LEGS:
             raise ValueError("The number of leg states should be the same of number of legs.")
         self._initial_leg_state = initial_leg_state
         self._next_leg_state = []
@@ -82,11 +86,11 @@ class OpenloopGaitGenerator(gait_generator.GaitGenerator):
         self._leg_state = None
         self._desired_leg_state = None
 
-        self.reset(0)
+        self.reset()
 
     def reset(self):
         # The normalized phase within swing or stance duration.
-        self._normalized_phase = np.zeros(self._robot.num_legs)
+        self._normalized_phase = np.zeros(self.simulator.robot_kinematics.NUM_LEGS)
         self._leg_state = list(self._initial_leg_state)
         self._desired_leg_state = list(self._initial_leg_state)
 
@@ -133,7 +137,7 @@ class OpenloopGaitGenerator(gait_generator.GaitGenerator):
 
     def update(self, robot_obs: RobotObservation, current_time: float):
         contact_state = robot_obs.foot_contacts
-        for leg_id in range(self._robot.num_legs):
+        for leg_id in range(self.simulator.robot_kinematics.NUM_LEGS):
             # Here is the explanation behind this logic: We use the phase within the
             # full swing/stance cycle to determine if a swing/stance switch occurs
             # for a leg. The threshold value is the "initial_state_ratio_in_cycle" as
