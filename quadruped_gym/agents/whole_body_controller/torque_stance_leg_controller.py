@@ -82,6 +82,7 @@ class TorqueStanceLegController(leg_controller.LegController):
     def get_action(self):
         """Computes the torque for stance legs."""
         # Actual q and dq
+        """
         contacts = np.array(
             [
                 (
@@ -95,9 +96,13 @@ class TorqueStanceLegController(leg_controller.LegController):
             ],
             dtype=np.float64,
         )
-        foot_positions = self._last_robot_obs.foot_positions_in_base_frame
+        foot_positions = self._last_robot_obs.foot_positions
+        """
+        contacts = self._last_robot_obs.foot_contacts
+        foot_positions = self._last_robot_obs.foot_positions
+        leg_angles = self._last_robot_obs.motor_angles.reshape((4,3))
 
-        robot_com_height = self._estimate_robot_height(contacts, foot_positions)
+        robot_com_height = self._estimate_robot_height(self._last_robot_obs)
         robot_com_velocity = self._state_estimator.com_velocity_body_frame
         robot_com_roll_pitch_yaw = self._last_robot_obs.base_rpy
         robot_com_roll_pitch_yaw[2] = 0.0  # To prevent yaw drifting
@@ -118,7 +123,7 @@ class TorqueStanceLegController(leg_controller.LegController):
 
         action = {}
         for leg_id, force in enumerate(contact_forces):
-            motor_torques = self.simulator.robot.map_contact_force_to_joint_torques(leg_id, force)
+            motor_torques = self.simulator.robot_kinematics.map_contact_force_to_joint_torques(leg_id, force, leg_angles[leg_id])
             for joint_id, torque in motor_torques.items():
                 action[joint_id] = (0, 0, 0, 0, torque)
         return action, contact_forces

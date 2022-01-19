@@ -10,6 +10,7 @@ import numpy as np
 
 from quadruped_gym.agents.whole_body_controller import gait_generator as gait_generator_lib
 from quadruped_gym.agents.whole_body_controller import leg_controller
+from quadruped_gym.core.simulator import Simulator
 from quadruped_gym.core.types import RobotObservation
 from quadruped_gym.quadruped.a1_pybullet import robot
 
@@ -90,6 +91,7 @@ class RaibertSwingLegController(leg_controller.LegController):
 
     def __init__(
         self,
+        simulator: Simulator,
         gait_generator: Any,
         state_estimator: Any,
         desired_speed: Tuple[float, float],
@@ -108,6 +110,7 @@ class RaibertSwingLegController(leg_controller.LegController):
           foot_clearance: The foot clearance on the ground at the end of the swing
             cycle.
         """
+        self.simulator = simulator
         self._state_estimator = state_estimator
         self._gait_generator = gait_generator
         self._last_leg_state = gait_generator.desired_leg_state

@@ -48,7 +48,7 @@ class RobotAction:
     velocity_gain: np.ndarray
     additional_torques: np.ndarray
 
-    @classmethod
+    @staticmethod
     def zeros(shape: Tuple[int, ...]) -> 'RobotAction':
         return RobotAction(
             desired_motor_angles=np.zeros(shape),
