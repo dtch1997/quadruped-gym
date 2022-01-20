@@ -14,7 +14,7 @@ def build_env(
 ):
 
     sim_params = simulator.SimulationParameters(
-        enable_rendering=render, n_action_repeat=1, enable_action_filter=True, enable_clip_motor_commands=True
+        enable_rendering=render, n_action_repeat=30, enable_action_filter=True, enable_clip_motor_commands=True
     )
 
     robot_sensor_list = [
@@ -33,7 +33,7 @@ def build_env(
         sim_params=sim_params, robot_sensors=robot_sensor_list, env_sensors=env_sensor_list, task=task
     )
 
-    # env = wrappers.ObservationDictionaryToArrayWrapper(env)
+    env = wrappers.ObservationDictionaryToArrayWrapper(env)
     env = wrappers.AddPoseOffsetWrapper(env)
     env = wrappers.ActionLimitWrapper(env, action_limit=action_limit)
 
