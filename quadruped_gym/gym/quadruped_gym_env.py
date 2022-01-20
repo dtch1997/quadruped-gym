@@ -40,13 +40,15 @@ def _build_action_space(action_config: RobotActionConfig):
 class QuadrupedGymEnv(gym.Env):
     """The gym environment for the locomotion task."""
 
-    metadata = {"render.modes": ["human", "rgb_array"], "video.frames_per_second": 100}
+    metadata = {"render.modes": ["rgb_array"], "video.frames_per_second": 100}
 
     def __init__(
         self,
         sim_params: SimulationParameters = SimulationParameters(),
         robot_sensors: List[sensor.BoxSpaceSensor] = [],
         env_sensors: List[sensor.BoxSpaceSensor] = [],
+        position_gains = np.full(12, 100.0),
+        velocity_gains = np.full(12, 1.0),
         task=None,
     ):
         """Initializes the locomotion gym environment.
@@ -66,6 +68,8 @@ class QuadrupedGymEnv(gym.Env):
         self._robot_sensors = robot_sensors
         self._env_sensors = env_sensors
         self._task = task
+        self._position_gains = position_gains
+        self._velocity_gains = velocity_gains
 
         assert sim_params.actuator_control_mode == ControlMode.POSITION, "Unsupported control mode"
         self._simulator = a1_pybullet.A1PyBulletSimulator(sim_params)
@@ -143,6 +147,8 @@ class QuadrupedGymEnv(gym.Env):
 
         robot_action = RobotAction.zeros(action.shape)
         robot_action.desired_motor_angles = action
+        robot_action.position_gain = self._position_gains
+        robot_action.velocity_gain = self._velocity_gains
 
         self._last_robot_obs = self._simulator.step(robot_action)
         self._env_step_counter += 1
@@ -159,8 +165,6 @@ class QuadrupedGymEnv(gym.Env):
         return self._last_env_obs, reward, done, {"reward_components": reward_components}
 
     def render(self, mode="rgb_array"):
-        if mode != "rgb_array":
-            raise ValueError("Unsupported render mode:{}".format(mode))
         return self._simulator.render()
 
     def _termination(self) -> bool:

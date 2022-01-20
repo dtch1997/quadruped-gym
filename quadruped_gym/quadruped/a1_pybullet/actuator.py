@@ -28,8 +28,8 @@ class Actuator:
                 controlMode=robot.pybullet_client.POSITION_CONTROL,
                 targetPositions=action.desired_motor_angles,
                 targetVelocities=action.desired_motor_velocities,
-                positionGains=action.position_gain,
-                velocityGains=action.velocity_gain,
+                #positionGains=action.position_gain,
+                #velocityGains=action.velocity_gain,
             )
 
         elif self.control_mode == ControlMode.HYBRID:

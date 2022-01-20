@@ -26,10 +26,11 @@ pybullet = "^3.2.1"
 numpy = ">=1.17,<1.21"
 scipy = "^1.7.3"
 numba = "^0.54.1"
-gym = "^0.21.0"
+gym = ">=0.17,<0.20"
 quadprog = "^0.1.11"
 gin = "^0.1.6"
 gin-config = "^0.5.0"
+stable-baselines3 = "^1.4.0"
 
 
 [tool.poetry.extras]
