@@ -9,9 +9,9 @@ def test_simulator():
     simulator = A1PyBulletSimulator(A1PyBulletSimulationParameters(enable_rendering=False))
     action = RobotAction(
         desired_motor_angles=simulator._robot.INIT_MOTOR_ANGLES,
-        desired_motor_velocities=0,
-        position_gain=5,
-        velocity_gain=1,
+        desired_motor_velocities=np.zeros(12),
+        position_gain=np.full(12, 100.0),
+        velocity_gain=np.full(12, 1.0),
         additional_torques=np.zeros(12),
     )
     for i in range(300):

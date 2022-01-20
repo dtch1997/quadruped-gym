@@ -21,10 +21,10 @@ import numpy as np
 from gym import spaces
 from gym.utils import seeding
 
-from quadruped_gym.core.types import RobotActionConfig, RobotObservation
+from quadruped_gym.core.types import RobotAction, RobotActionConfig, RobotObservation
 from quadruped_gym.gym.sensors import sensor, space_utils
 from quadruped_gym.quadruped import a1_pybullet
-from quadruped_gym.quadruped.a1_pybullet.robot import Robot
+from quadruped_gym.quadruped.a1_pybullet.actuator import ControlMode
 from quadruped_gym.quadruped.a1_pybullet.simulator import SimulationParameters
 
 
@@ -41,7 +41,6 @@ class QuadrupedGymEnv(gym.Env):
     """The gym environment for the locomotion task."""
 
     metadata = {"render.modes": ["human", "rgb_array"], "video.frames_per_second": 100}
-    _num_action_repeat = 30
 
     def __init__(
         self,
@@ -68,6 +67,7 @@ class QuadrupedGymEnv(gym.Env):
         self._env_sensors = env_sensors
         self._task = task
 
+        assert sim_params.actuator_control_mode == ControlMode.POSITION, "Unsupported control mode"
         self._simulator = a1_pybullet.A1PyBulletSimulator(sim_params)
 
         # The action list contains the name of all actions.
@@ -76,11 +76,15 @@ class QuadrupedGymEnv(gym.Env):
 
     @property
     def env_time_step(self):
-        return self._num_action_repeat * self._simulator.sim_params.sim_time_step_s
+        return self._simulator.sim_params.n_action_repeat * self._simulator.sim_params.sim_time_step_s
 
     @property
     def last_robot_obs(self) -> RobotObservation:
         return self._last_robot_obs
+
+    @property
+    def last_robot_action(self) -> RobotAction:
+        return self._last_robot_action
 
     @property
     def last_env_obs(self) -> Dict[str, np.ndarray]:
@@ -111,7 +115,7 @@ class QuadrupedGymEnv(gym.Env):
 
         self._last_robot_obs: RobotObservation = self._simulator.reset()
         self._env_step_counter = 0
-        self._last_robot_action = np.zeros(self.action_space.shape)
+        self._last_robot_action = RobotAction.zeros(self.action_space.shape)
 
         for s in self.all_sensors():
             s.on_reset(self)
@@ -137,12 +141,12 @@ class QuadrupedGymEnv(gym.Env):
           info: A dictionary that stores diagnostic information.
         """
 
-        robot_action = RobotAction(
-            
-        )
-        self._last_robot_obs: RobotObservation = self._simulator.step(action, n_repeats=self._num_action_repeat)
+        robot_action = RobotAction.zeros(action.shape)
+        robot_action.desired_motor_angles = action
+
+        self._last_robot_obs = self._simulator.step(robot_action)
         self._env_step_counter += 1
-        self._last_robot_action = action
+        self._last_robot_action = robot_action
 
         for s in self.all_sensors():
             s.on_step(self)

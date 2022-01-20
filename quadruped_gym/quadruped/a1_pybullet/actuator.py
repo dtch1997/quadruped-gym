@@ -21,16 +21,19 @@ class Actuator:
     def send_action(self, action: RobotAction, robot: Robot, robot_obs: RobotObservation):
 
         if self.control_mode == ControlMode.POSITION:
-
+            # Use PyBullet's internal logic to compute the desired torque
             robot.pybullet_client.setJointMotorControlArray(
                 bodyIndex=robot.quadruped,
                 jointIndices=robot.motor_id_list,
                 controlMode=robot.pybullet_client.POSITION_CONTROL,
                 targetPositions=action.desired_motor_angles,
+                targetVelocities=action.desired_motor_velocities,
+                positionGains=action.position_gain,
+                velocityGains=action.velocity_gain,
             )
 
         elif self.control_mode == ControlMode.HYBRID:
-
+            # Manually compute the torque, allowing for additional torques
             motor_torques = action.get_motor_torques(
                 current_motor_angles=robot_obs.motor_angles, current_motor_velocities=robot_obs.motor_velocities
             )

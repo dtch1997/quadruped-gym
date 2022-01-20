@@ -64,4 +64,4 @@ class LastActionSensor(sensor.BoxSpaceSensor):
 
     def _get_observation(self) -> _ARRAY:
         """Returns the last action of the environment."""
-        return self._last_action
+        return self._last_action.desired_motor_angles
