@@ -13,8 +13,9 @@ def build_env(
     render=False,
 ):
 
-    sim_params = simulator.SimulationParameters()
-    sim_params.enable_rendering = render
+    sim_params = simulator.SimulationParameters(
+        enable_rendering=render, n_action_repeat=30, enable_action_filter=True, enable_clip_motor_commands=True
+    )
 
     robot_sensor_list = [
         robot_sensors.BaseVelocitySensor(),
@@ -45,7 +46,7 @@ class A1BulletGymEnv(gym.Env):
     metadata = {"render.modes": ["rgb_array"]}
 
     def __init__(self, render=False):
-        self._env = build_env(render = render)
+        self._env = build_env(render=render)
         self.observation_space = self._env.observation_space
         self.action_space = self._env.action_space
 
