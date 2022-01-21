@@ -29,7 +29,7 @@ class SimulationParameters(object):
     num_bullet_solver_iterations: int = 10
     enable_rendering: bool = False
     # Parameters concerning camera rendering
-    camera_distance: float = 1.0
+    camera_distance: float = 3.0
     camera_yaw: float = 0
     camera_pitch: float = -30
     render_width: int = 480
@@ -168,8 +168,7 @@ class Simulator(BaseSimulator):
         )
 
         rgb_array = np.array(px)
-        rgb_array = rgb_array.reshape(h, w, 4)
-        rgb_array = rgb_array.astype(np.uint8)
+        rgb_array = rgb_array[:, :, :3]
         return rgb_array
 
     def _init_pybullet_client(self):
