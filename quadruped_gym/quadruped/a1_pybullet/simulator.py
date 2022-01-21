@@ -32,8 +32,8 @@ class SimulationParameters(object):
     camera_distance: float = 3.0
     camera_yaw: float = 0
     camera_pitch: float = -30
-    render_width: int = 480
-    render_height: int = 360
+    render_width: int = 960
+    render_height: int = 720
     # Flags concerning action post-processing
     # TODO: Investigate how these are implemented
     enable_action_filter: bool = False
