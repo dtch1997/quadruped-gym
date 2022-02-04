@@ -68,7 +68,7 @@ class RobotKinematics:
         l_hip = 0.08505 * l_hip_sign
         x, y, z = foot_position[0], foot_position[1], foot_position[2]
         theta_knee = -np.arccos((x ** 2 + y ** 2 + z ** 2 - l_hip ** 2 - l_low ** 2 - l_up ** 2) / (2 * l_low * l_up))
-        l = np.sqrt(l_up ** 2 + l_low ** 2 + 2 * l_up * l_low * np.cos(theta_knee))
+        l = np.sqrt(l_up ** 2 + l_low ** 2 + 2 * l_up * l_low * np.cos(theta_knee))  # noqa: E741
         theta_hip = np.arcsin(-x / l) - theta_knee / 2
         c1 = l_hip * y - l * np.cos(theta_hip + theta_knee / 2) * z
         s1 = l * np.cos(theta_hip + theta_knee / 2) * y + l_hip * z
@@ -151,8 +151,8 @@ class RobotKinematics:
 class Robot:
     """Class to load A1 robot data in PyBullet and reset robot to initial state"""
 
-    INIT_MOTOR_ANGLES = np.array([0, 0.8, -1.6] * 4)
-    INIT_POSITION = [0, 0, 0.37]
+    INIT_MOTOR_ANGLES = np.array([0, 0.67, -1.3] * 4)
+    INIT_POSITION = [0, 0, 0.4]
     INIT_ORIENTATION = [0, 0, 0, 1]
     URDF_FILENAME = "a1/urdf/a1_black.urdf"
 
