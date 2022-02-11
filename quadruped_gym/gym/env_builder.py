@@ -2,7 +2,7 @@ import gym
 import numpy as np
 
 from quadruped_gym.gym.quadruped_gym_env import QuadrupedGymEnv
-from quadruped_gym.gym.sensors import environment_sensors, robot_sensors
+from quadruped_gym.gym.sensors import robot_sensors
 from quadruped_gym.gym.tasks import forward_task_pos
 from quadruped_gym.gym.wrappers import wrappers
 from quadruped_gym.quadruped.a1_pybullet import simulator
@@ -24,9 +24,7 @@ def build_env(
         robot_sensors.MotorVelocitySensor(12),
         robot_sensors.TargetDisplacementSensor(),
     ]
-    env_sensor_list = [
-        environment_sensors.LastActionSensor(12),
-    ]
+    env_sensor_list = []
     task = forward_task_pos.ForwardTask()
 
     env = QuadrupedGymEnv(
