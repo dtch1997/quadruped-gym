@@ -154,7 +154,7 @@ class Robot:
     INIT_MOTOR_ANGLES = np.array([0, 0.67, -1.3] * 4)
     INIT_POSITION = [0, 0, 0.4]
     INIT_ORIENTATION = [0, 0, 0, 1]
-    URDF_FILENAME = "a1/urdf/a1_black.urdf"
+    URDF_FILENAME = "a1/a1.urdf"
 
     kinematics = RobotKinematics
 

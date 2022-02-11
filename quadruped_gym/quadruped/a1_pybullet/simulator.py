@@ -4,12 +4,12 @@ from timeit import default_timer as timer
 
 import numpy as np
 import pybullet
+import pybullet_data
 import pybullet_utils.bullet_client as bullet_client
 
 from quadruped_gym.core.filter import ActionFilterButter
 from quadruped_gym.core.simulator import Simulator as BaseSimulator
 from quadruped_gym.core.types import RobotAction, RobotObservation
-from quadruped_gym.quadruped import data
 from quadruped_gym.quadruped.a1_pybullet import (
     A1PyBulletActuator,
     A1PyBulletPerceptor,
@@ -178,5 +178,5 @@ class Simulator(BaseSimulator):
         else:
             pybullet_client = bullet_client.BulletClient(connection_mode=pybullet.DIRECT)
 
-        pybullet_client.setAdditionalSearchPath(data.get_data_path())
+        pybullet_client.setAdditionalSearchPath(pybullet_data.getDataPath())
         return pybullet_client
