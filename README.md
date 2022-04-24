@@ -16,6 +16,9 @@ OpenAI gym environment for training quadruped legged robots
 * PyPI: <https://pypi.org/project/quadruped-gym/>
 * Free software: MIT
 
+## Roadmap
+- [ ] Minimalist PyBullet gym environment set up 
+- [ ] Deployment pipeline to Gazebo simulator
 
 ## Features
 
