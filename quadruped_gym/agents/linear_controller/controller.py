@@ -1,6 +1,6 @@
 import numpy as np
 
-from quadruped_gym.core.simulator import Controller
+from quadruped_gym.core.controller import Controller
 from quadruped_gym.core.types import RobotAction
 
 
