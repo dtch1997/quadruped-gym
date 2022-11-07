@@ -4,3 +4,4 @@ from quadruped_gym.quadruped.a1_pybullet.perceptor import RobotObservation as A1
 from quadruped_gym.quadruped.a1_pybullet.robot import Robot as A1PyBulletRobot
 from quadruped_gym.quadruped.a1_pybullet.robot import RobotKinematics as A1PyBulletRobotKinematics
 from quadruped_gym.quadruped.a1_pybullet.simulator import Simulator as A1PyBulletSimulator
+from quadruped_gym.quadruped.a1_pybullet.simulator import SimulationParameters as A1PybulletSimulationParameters
